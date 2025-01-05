@@ -29,51 +29,85 @@
             margin-bottom: 16px;
             text-align: center;
         }
-        .chat-container {
+        .tasks-container {
             background: white;
             border-radius: 12px;
             padding: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 16px;
         }
-        .chat-area {
-            height: 60vh;
-            overflow-y: auto;
-            padding: 16px;
-            border: 1px solid #eee;
+        .task-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #9333ea;
             border-radius: 8px;
             margin-bottom: 16px;
+            font-size: 16px;
         }
-        .message {
-            margin-bottom: 12px;
-            padding: 12px;
-            border-radius: 16px;
-            max-width: 80%;
+        .task-list {
+            list-style: none;
         }
-        .genie-message {
-            background: #f0f0f0;
-        }
-        .user-message {
-            background: #9333ea;
-            color: white;
-            margin-left: auto;
-        }
-        .voice-button {
-            background: #9333ea;
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 24px;
-            font-size: 18px;
-            width: 100%;
-            cursor: pointer;
+        .task-item {
             display: flex;
             align-items: center;
-            justify-content: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            gap: 12px;
+        }
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #9333ea;
+            border-radius: 4px;
+        }
+        .task-text {
+            flex: 1;
+        }
+        .task-delete {
+            color: red;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .task-completed {
+            text-decoration: line-through;
+            color: #666;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 16px;
             gap: 8px;
         }
-        .voice-button:hover {
-            background: #7928ca;
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .tab.active {
+            background: #9333ea;
+            color: white;
+        }
+        .reminder-input {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .reminder-text {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #9333ea;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .reminder-time {
+            padding: 12px;
+            border: 2px solid #9333ea;
+            border-radius: 8px;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -84,33 +118,163 @@
             <p>Your Personal Assistant</p>
         </header>
         
-        <main class="chat-container">
-            <div class="chat-area" id="chatArea">
-                <div class="message genie-message">
-                    Hello! I'm Genie, your personal assistant. How can I help you today?
-                </div>
+        <div class="tabs">
+            <button class="tab active" onclick="showTasks()">Tasks</button>
+            <button class="tab" onclick="showReminders()">Reminders</button>
+        </div>
+
+        <main class="tasks-container" id="tasksSection">
+            <input type="text" class="task-input" placeholder="Add a new task..." id="taskInput" onkeypress="addTaskOnEnter(event)">
+            <ul class="task-list" id="taskList"></ul>
+        </main>
+
+        <main class="tasks-container" id="remindersSection" style="display: none;">
+            <div class="reminder-input">
+                <input type="text" class="reminder-text" placeholder="Reminder text..." id="reminderText">
+                <input type="datetime-local" class="reminder-time" id="reminderTime">
             </div>
-            <button class="voice-button" id="voiceButton">
-                🎤 Talk to Genie
-            </button>
+            <button class="tab active" onclick="addReminder()">Set Reminder</button>
+            <ul class="task-list" id="reminderList"></ul>
         </main>
     </div>
 
     <script>
-        const voiceButton = document.getElementById('voiceButton');
-        const chatArea = document.getElementById('chatArea');
+        // Tasks Management
+        let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+        let reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
 
-        function addMessage(text, isUser = false) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user-message' : 'genie-message'}`;
-            messageDiv.textContent = text;
-            chatArea.appendChild(messageDiv);
-            chatArea.scrollTop = chatArea.scrollHeight;
+        function addTaskOnEnter(event) {
+            if (event.key === 'Enter') {
+                const input = document.getElementById('taskInput');
+                const text = input.value.trim();
+                if (text) {
+                    const task = {
+                        id: Date.now(),
+                        text,
+                        completed: false
+                    };
+                    tasks.push(task);
+                    saveTasks();
+                    renderTasks();
+                    input.value = '';
+                }
+            }
         }
 
-        voiceButton.addEventListener('click', () => {
-            addMessage('Voice commands coming soon!');
-        });
+        function toggleTask(id) {
+            tasks = tasks.map(task => 
+                task.id === id ? {...task, completed: !task.completed} : task
+            );
+            saveTasks();
+            renderTasks();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveTasks();
+            renderTasks();
+        }
+
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = tasks.map(task => `
+                <li class="task-item">
+                    <input type="checkbox" 
+                           class="task-checkbox" 
+                           ${task.completed ? 'checked' : ''}
+                           onclick="toggleTask(${task.id})">
+                    <span class="task-text ${task.completed ? 'task-completed' : ''}">${task.text}</span>
+                    <button class="task-delete" onclick="deleteTask(${task.id})">×</button>
+                </li>
+            `).join('');
+        }
+
+        // Reminders Management
+        function addReminder() {
+            const text = document.getElementById('reminderText').value.trim();
+            const time = document.getElementById('reminderTime').value;
+            
+            if (text && time) {
+                const reminder = {
+                    id: Date.now(),
+                    text,
+                    time,
+                    notified: false
+                };
+                reminders.push(reminder);
+                saveReminders();
+                renderReminders();
+                document.getElementById('reminderText').value = '';
+                document.getElementById('reminderTime').value = '';
+            }
+        }
+
+        function deleteReminder(id) {
+            reminders = reminders.filter(reminder => reminder.id !== id);
+            saveReminders();
+            renderReminders();
+        }
+
+        function saveReminders() {
+            localStorage.setItem('reminders', JSON.stringify(reminders));
+        }
+
+        function renderReminders() {
+            const reminderList = document.getElementById('reminderList');
+            reminderList.innerHTML = reminders.map(reminder => `
+                <li class="task-item">
+                    <span class="task-text">
+                        ${reminder.text}<br>
+                        <small>${new Date(reminder.time).toLocaleString()}</small>
+                    </span>
+                    <button class="task-delete" onclick="deleteReminder(${reminder.id})">×</button>
+                </li>
+            `).join('');
+        }
+
+        // Tab Management
+        function showTasks() {
+            document.getElementById('tasksSection').style.display = 'block';
+            document.getElementById('remindersSection').style.display = 'none';
+            document.querySelectorAll('.tab').forEach((tab, index) => {
+                tab.classList.toggle('active', index === 0);
+            });
+        }
+
+        function showReminders() {
+            document.getElementById('tasksSection').style.display = 'none';
+            document.getElementById('remindersSection').style.display = 'block';
+            document.querySelectorAll('.tab').forEach((tab, index) => {
+                tab.classList.toggle('active', index === 1);
+            });
+        }
+
+        // Check Reminders
+        setInterval(() => {
+            const now = new Date();
+            reminders.forEach(reminder => {
+                if (!reminder.notified && new Date(reminder.time) <= now) {
+                    if (Notification.permission === 'granted') {
+                        new Notification('Reminder: ' + reminder.text);
+                    }
+                    reminder.notified = true;
+                }
+            });
+            saveReminders();
+        }, 1000);
+
+        // Initialize
+        renderTasks();
+        renderReminders();
+        
+        // Request notification permission
+        if ('Notification' in window) {
+            Notification.requestPermission();
+        }
     </script>
 </body>
 </html>
