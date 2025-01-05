@@ -195,8 +195,8 @@
 
             let response = '';
             
-            if (command.includes('add task') || command.includes('new task')) {
-                const taskText = command.replace(/add task|new task/i, '').trim();
+            if (command.includes('lets') || command.includes('new task')) {
+                const taskText = command.replace(/lets|new task/i, '').trim();
                 if (taskText) {
                     addTask(taskText);
                     response = `Added task: ${taskText}`;
@@ -213,7 +213,7 @@
                 showReminders();
                 response = `You have ${reminders.length} reminders`;
             } else {
-                response = "I'm sorry, I didn't understand that command. Try saying 'add task', 'set reminder', or 'show tasks'.";
+                response = "I'm sorry, I didn't understand that command. Try saying 'lets', 'set reminder', or 'show tasks'.";
             }
 
             showResponse(response);
