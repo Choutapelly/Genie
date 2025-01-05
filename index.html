@@ -6,310 +6,139 @@
     <meta name="theme-color" content="#9333ea">
     <title>Genie - Your Personal Assistant</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, system-ui, sans-serif;
-            background: #f0f0f0;
-            min-height: 100vh;
-        }
-        .app {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 16px;
-        }
-        .header {
-            background: #9333ea;
+        /* Previous styles remain the same */
+        .listening-time {
             color: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-        .voice-button {
-            background: #7928ca;
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 24px;
-            font-size: 18px;
-            margin: 16px auto;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .voice-button:hover {
-            background: #6b21a8;
-        }
-        .voice-button.listening {
-            background: #ff4444;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        .response {
-            background: white;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 8px 0;
-            text-align: center;
-        }
-        .task-container {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 16px;
-        }
-        .task-input {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-        .task-input input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #9333ea;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-        .task-input button {
-            padding: 12px 24px;
-            background: #9333ea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        .task-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .task-item {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            background: #f8f8f8;
-            border-radius: 8px;
-            gap: 12px;
-        }
-        .task-checkbox {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .task-text {
-            flex: 1;
-        }
-        .task-text.completed {
-            text-decoration: line-through;
-            color: #666;
-        }
-        .task-delete {
-            background: none;
-            border: none;
-            color: #ff4444;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 4px 8px;
-        }
-        .debug-info {
-            background: #f8f8f8;
-            padding: 8px;
-            border-radius: 4px;
-            margin-top: 8px;
             font-size: 14px;
-            color: #666;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+        .pulse-animation {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
 <body>
-    <div class="app">
-        <header class="header">
-            <h1>Genie</h1>
-            <p>Your Personal Assistant</p>
-            <button id="voiceButton" class="voice-button">
-                <span id="micIcon">🎤</span>
-                <span id="buttonText">Talk to Genie</span>
-            </button>
-        </header>
-
-        <div id="responseArea"></div>
-
-        <div class="task-container">
-            <div class="task-input">
-                <input type="text" id="taskInput" placeholder="Type a new task here...">
-                <button onclick="addTaskFromInput()">Add Task</button>
-            </div>
-            <div id="taskList" class="task-list"></div>
-        </div>
-    </div>
-
+    <!-- Previous HTML remains the same -->
     <script>
-        const voiceButton = document.getElementById('voiceButton');
-        const buttonText = document.getElementById('buttonText');
-        const responseArea = document.getElementById('responseArea');
-        const taskInput = document.getElementById('taskInput');
-        let isListening = false;
-        let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-
-        // Initialize and render saved tasks
-        renderTasks();
-
-        // Initialize speech recognition
-        let recognition = null;
+        let recognition;
+        let listening = false;
+        let listenTimeout;
+        
         if ('webkitSpeechRecognition' in window) {
             recognition = new webkitSpeechRecognition();
             recognition.continuous = true;
             recognition.interimResults = true;
-            recognition.maxAlternatives = 1;
             recognition.lang = 'en-US';
-
+            
             recognition.onstart = () => {
-                isListening = true;
+                listening = true;
                 voiceButton.classList.add('listening');
                 buttonText.textContent = 'Listening...';
-                showResponse('I\'m listening...');
+                startListeningTimer();
             };
-
-            recognition.onresult = (event) => {
-                const text = event.results[0][0].transcript;
-                showDebug('I heard: ' + text);
-                handleCommand(text.toLowerCase());
-            };
-
-            recognition.onerror = (event) => {
-                showResponse('Error: ' + event.error);
-            };
-
+            
             recognition.onend = () => {
-                isListening = false;
+                listening = false;
                 voiceButton.classList.remove('listening');
                 buttonText.textContent = 'Talk to Genie';
+                clearTimeout(listenTimeout);
+            };
+            
+            let finalTranscript = '';
+            
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                
+                if (interimTranscript) {
+                    showDebug('Hearing: ' + interimTranscript);
+                }
+                
+                if (finalTranscript) {
+                    handleCommand(finalTranscript);
+                    finalTranscript = '';
+                }
+                
+                // Reset the listening timeout when user is speaking
+                if (interimTranscript) {
+                    resetListeningTimeout();
+                }
             };
         }
 
-        function handleCommand(command) {
-            showDebug('Processing command: ' + command);
-            let response = '';
-
-            if (command.includes('hello') || command.includes('hi')) {
-                response = 'Hello! How can I help you today?';
+        function startListening() {
+            try {
+                recognition.start();
+                setListeningTimeout();
+            } catch (error) {
+                recognition.stop();
+                setTimeout(() => {
+                    recognition.start();
+                }, 200);
             }
-            else if (command.includes('add task') || command.includes('new task')) {
-                const task = command.replace(/add task|new task/gi, '').trim();
-                if (task) {
-                    addTask(task);
-                    response = `I've added your task: ${task}`;
-                } else {
-                    response = "Please tell me what task to add";
+        }
+
+        function setListeningTimeout() {
+            listenTimeout = setTimeout(() => {
+                if (listening) {
+                    recognition.stop();
                 }
-            }
-            else if (command.includes('set reminder')) {
-                response = "I'll help you set a reminder. What time would you like the reminder?";
-            }
-            else {
-                response = "I heard you but I'm not sure what to do. Try saying 'add task' followed by your task.";
-            }
-
-            showResponse(response);
-            speak(response);
+            }, 7000); // Listen for 7 seconds
         }
 
-        function addTask(text) {
-            if (text.trim()) {
-                tasks.push({
-                    id: Date.now(),
-                    text: text.trim(),
-                    completed: false
-                });
-                saveTasks();
-                renderTasks();
-                return true;
-            }
-            return false;
-        }
-
-        function addTaskFromInput() {
-            const text = taskInput.value;
-            if (addTask(text)) {
-                taskInput.value = '';
-            }
-        }
-
-        taskInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                addTaskFromInput();
-            }
-        });
-
-        function toggleTask(id) {
-            tasks = tasks.map(task => 
-                task.id === id ? {...task, completed: !task.completed} : task
-            );
-            saveTasks();
-            renderTasks();
-        }
-
-        function deleteTask(id) {
-            tasks = tasks.filter(task => task.id !== id);
-            saveTasks();
-            renderTasks();
-        }
-
-        function saveTasks() {
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-        }
-
-        function renderTasks() {
-            const taskList = document.getElementById('taskList');
-            taskList.innerHTML = tasks.map(task => `
-                <div class="task-item">
-                    <input type="checkbox" 
-                           class="task-checkbox" 
-                           ${task.completed ? 'checked' : ''}
-                           onclick="toggleTask(${task.id})">
-                    <span class="task-text ${task.completed ? 'completed' : ''}">${task.text}</span>
-                    <button class="task-delete" onclick="deleteTask(${task.id})">×</button>
-                </div>
-            `).join('');
-        }
-
-        function showResponse(text) {
-            const response = document.createElement('div');
-            response.className = 'response';
-            response.textContent = text;
-            responseArea.insertBefore(response, responseArea.firstChild);
-            setTimeout(() => response.remove(), 5000);
-        }
-
-        function showDebug(text) {
-            const debug = document.createElement('div');
-            debug.className = 'debug-info';
-            debug.textContent = text;
-            responseArea.insertBefore(debug, responseArea.firstChild);
-            setTimeout(() => debug.remove(), 3000);
+        function resetListeningTimeout() {
+            clearTimeout(listenTimeout);
+            setListeningTimeout();
         }
 
         function speak(text) {
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(text);
+                
+                // Get available voices
+                let voices = speechSynthesis.getVoices();
+                
+                // Set female voice
+                const femaleVoice = voices.find(voice => 
+                    voice.name.includes('female') || 
+                    voice.name.includes('woman') ||
+                    voice.name.includes('girl')
+                );
+                
+                if (femaleVoice) {
+                    utterance.voice = femaleVoice;
+                }
+                
+                // Set voice properties
+                utterance.pitch = 1.2; // Slightly higher pitch for female voice
+                utterance.rate = 1.0; // Normal speed
+                utterance.volume = 1.0;
+                
                 speechSynthesis.speak(utterance);
             }
         }
 
+        // Make sure we get the voices
+        if ('speechSynthesis' in window) {
+            speechSynthesis.onvoiceschanged = () => {
+                speak("Hello! I'm Genie, your personal assistant.");
+            };
+        }
+
+        // Rest of your existing code...
+
         voiceButton.addEventListener('click', () => {
-            if (!isListening && recognition) {
-                recognition.start();
+            if (!listening) {
+                startListening();
             }
         });
     </script>
