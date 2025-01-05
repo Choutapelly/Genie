@@ -12,7 +12,7 @@
             box-sizing: border-box;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, system-ui, sans-serif;
             background: #f0f0f0;
             min-height: 100vh;
         }
@@ -29,101 +29,62 @@
             margin-bottom: 16px;
             text-align: center;
         }
-        .tasks-container {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 16px;
-        }
-        .task-input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #9333ea;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 16px;
-        }
-        .task-list {
-            list-style: none;
-        }
-        .task-item {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-            gap: 12px;
-        }
-        .task-checkbox {
-            width: 20px;
-            height: 20px;
-            border: 2px solid #9333ea;
-            border-radius: 4px;
-        }
-        .task-text {
-            flex: 1;
-        }
-        .task-delete {
-            color: red;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px 8px;
-        }
-        .task-completed {
-            text-decoration: line-through;
-            color: #666;
-        }
-        .tabs {
-            display: flex;
-            margin-bottom: 16px;
-            gap: 8px;
-        }
-        .tab {
-            flex: 1;
-            padding: 12px;
-            background: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        .tab.active {
-            background: #9333ea;
-            color: white;
-        }
         .voice-button {
-            background: #9333ea;
+            background: #7928ca;
             color: white;
-            padding: 12px 24px;
-            border-radius: 24px;
             border: none;
+            padding: 16px 32px;
+            border-radius: 24px;
+            font-size: 18px;
+            margin: 16px auto;
             display: flex;
             align-items: center;
             gap: 8px;
-            margin: 16px auto;
             cursor: pointer;
-            font-size: 16px;
+            transition: all 0.3s ease;
         }
-        .listening {
-            animation: pulse 1.5s infinite;
+        .voice-button:hover {
+            background: #6b21a8;
+        }
+        .voice-button.listening {
             background: #ff4444;
+            animation: pulse 1.5s infinite;
         }
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
-        .genie-response {
-            background: #f0f0f0;
+        .response {
+            background: white;
             padding: 12px;
             border-radius: 8px;
             margin: 8px 0;
             text-align: center;
-            opacity: 1;
-            transition: opacity 0.3s ease;
         }
-        .fade-out {
-            opacity: 0;
+        .task-list {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            gap: 8px;
+        }
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        .debug-info {
+            background: #f8f8f8;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 14px;
+            color: #666;
         }
     </style>
 </head>
@@ -134,35 +95,22 @@
             <p>Your Personal Assistant</p>
             <button id="voiceButton" class="voice-button">
                 <span id="micIcon">🎤</span>
-                <span id="voiceButtonText">Talk to Genie</span>
+                <span id="buttonText">Talk to Genie</span>
             </button>
         </header>
-        
-        <div class="tabs">
-            <button class="tab active" onclick="showTasks()">Tasks</button>
-            <button class="tab" onclick="showReminders()">Reminders</button>
-        </div>
 
-        <main class="tasks-container" id="tasksSection">
-            <input type="text" class="task-input" placeholder="Add a new task..." id="taskInput" onkeypress="addTaskOnEnter(event)">
-            <ul class="task-list" id="taskList"></ul>
-        </main>
-
-        <main class="tasks-container" id="remindersSection" style="display: none;">
-            <input type="text" class="task-input" placeholder="Reminder text..." id="reminderText">
-            <input type="datetime-local" class="task-input" id="reminderTime">
-            <button class="tab active" onclick="addReminder()">Set Reminder</button>
-            <ul class="task-list" id="reminderList"></ul>
-        </main>
+        <div id="responseArea"></div>
+        <div id="taskList" class="task-list"></div>
     </div>
 
     <script>
-        let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-        let reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+        const voiceButton = document.getElementById('voiceButton');
+        const buttonText = document.getElementById('buttonText');
+        const responseArea = document.getElementById('responseArea');
         let isListening = false;
-        let recognition;
 
         // Initialize speech recognition
+        let recognition = null;
         if ('webkitSpeechRecognition' in window) {
             recognition = new webkitSpeechRecognition();
             recognition.continuous = false;
@@ -171,258 +119,129 @@
 
             recognition.onstart = () => {
                 isListening = true;
-                const voiceButton = document.getElementById('voiceButton');
                 voiceButton.classList.add('listening');
-                document.getElementById('voiceButtonText').textContent = 'Listening...';
+                buttonText.textContent = 'Listening...';
+                showResponse('I\'m listening...');
             };
 
             recognition.onresult = (event) => {
-                const command = event.results[0][0].transcript.toLowerCase();
-                processVoiceCommand(command);
+                const text = event.results[0][0].transcript;
+                showDebug('I heard: ' + text);
+                handleCommand(text.toLowerCase());
+            };
+
+            recognition.onerror = (event) => {
+                showResponse('Error: ' + event.error);
             };
 
             recognition.onend = () => {
                 isListening = false;
-                const voiceButton = document.getElementById('voiceButton');
                 voiceButton.classList.remove('listening');
-                document.getElementById('voiceButtonText').textContent = 'Talk to Genie';
+                buttonText.textContent = 'Talk to Genie';
             };
         }
 
-        // Process voice commands
-        function processVoiceCommand(command) {
-            showResponse("I heard: " + command);
-            let response = '';
-            
-            if (command.includes('add task') || command.includes('new task')) {
-                const taskText = command.replace(/add task|new task/i, '').trim();
-                if (taskText) {
-                    addTask(taskText);
-                    response = `Added task: ${taskText}`;
-                }
-            } else if (command.includes('set reminder')) {
-    // Extract time patterns like "tomorrow", "at 3pm", "in 2 hours"
-    let reminderText = command.replace('set reminder', '').trim();
-    let time = new Date();
-    
-    // Handle different time patterns
-    if (command.includes(' at ')) {
-        const timeStr = command.split(' at ')[1].trim();
-        const [hours, modifier] = timeStr.split(/[: ]/);
-        if (modifier === 'pm') {
-            time.setHours(parseInt(hours) + 12, 0, 0);
+function handleCommand(command) {
+    // First, show what Genie heard
+    showDebug('Processing command: ' + command);
+    let response = '';
+
+    if (command.includes('hello') || command.includes('hi')) {
+        response = 'Hello! How can I help you today?';
+    }
+    else if (command.includes('add task') || command.includes('new task')) {
+        const task = command.replace(/add task|new task/gi, '').trim();
+        if (task) {
+            // Actually add the task
+            const taskItem = document.createElement('div');
+            taskItem.className = 'task-item';
+            taskItem.innerHTML = `
+                <input type="checkbox" class="task-checkbox">
+                <span class="task-text">${task}</span>
+                <button onclick="this.parentElement.remove()" class="task-delete">×</button>
+            `;
+            document.getElementById('taskList').appendChild(taskItem);
+            response = `I've added your task: ${task}`;
         } else {
-            time.setHours(parseInt(hours), 0, 0);
-        }
-    } else if (command.includes('tomorrow')) {
-        time.setDate(time.getDate() + 1);
-    } else if (command.includes('in')) {
-        if (command.includes('hour')) {
-            const hours = parseInt(command.match(/\d+/)[0]);
-            time.setHours(time.getHours() + hours);
-        } else if (command.includes('minute')) {
-            const minutes = parseInt(command.match(/\d+/)[0]);
-            time.setMinutes(time.getMinutes() + minutes);
+            response = "Please tell me what task to add";
         }
     }
+    else if (command.includes('set reminder')) {
+        response = "I'll help you set a reminder. What time would you like the reminder?";
+    }
+    else {
+        response = "I heard you but I'm not sure what to do. Try saying 'add task' followed by your task.";
+    }
 
-    const reminder = {
-        id: Date.now(),
-        text: reminderText,
-        time: time.toISOString(),
-        notified: false
-    };
-    reminders.push(reminder);
-    saveReminders();
-    renderReminders();
-    
-    response = `Reminder set for ${time.toLocaleString()}: ${reminderText}`;
-    showReminders();
-                const reminderText = command.replace('set reminder', '').trim();
-                document.getElementById('reminderText').value = reminderText;
-                showReminders();
-                response = 'Please select a time for your reminder';
-            } else if (command.includes('show tasks') || command.includes('list tasks')) {
-                showTasks();
-                response = `You have ${tasks.length} tasks`;
-            } else if (command.includes('show reminders')) {
-                showReminders();
-                response = `You have ${reminders.length} reminders`;
-            } else {
-                response = "I'm sorry, I didn't understand that command. Try saying 'add task', 'set reminder', or 'show tasks'.";
+    showResponse(response);
+    speak(response);
+}            let response = '';
+
+            if (command.includes('hello') || command.includes('hi')) {
+                response = 'Hello! How can I help you today?';
+            }
+            else if (command.includes('add task') || command.includes('new task')) {
+                const task = command.replace(/add task|new task/gi, '').trim();
+                if (task) {
+                    addTask(task);
+                    response = `Added task: ${task}`;
+                }
+            }
+            else if (command.includes('set reminder')) {
+                const reminder = command.replace('set reminder', '').trim();
+                response = `Setting reminder: ${reminder}`;
+                // Add reminder functionality
+            }
+            else if (command.includes('what can you do')) {
+                response = 'I can help you manage tasks and set reminders. Try saying "add task" or "set reminder"';
+            }
+            else {
+                response = "I'm not sure what you mean. Try saying 'hello', 'add task', or 'what can you do'";
             }
 
             showResponse(response);
-            speakResponse(response);
+            speak(response);
         }
 
-        // Visual and audio response
         function showResponse(text) {
             const response = document.createElement('div');
-            response.className = 'genie-response';
+            response.className = 'response';
             response.textContent = text;
-            document.body.appendChild(response);
-            
-            setTimeout(() => {
-                response.classList.add('fade-out');
-                setTimeout(() => response.remove(), 300);
-            }, 3000);
+            responseArea.insertBefore(response, responseArea.firstChild);
+
+            // Remove after 5 seconds
+            setTimeout(() => response.remove(), 5000);
         }
 
-        function speakResponse(text) {
+        function showDebug(text) {
+            const debug = document.createElement('div');
+            debug.className = 'debug-info';
+            debug.textContent = text;
+            responseArea.insertBefore(debug, responseArea.firstChild);
+            
+            // Remove after 3 seconds
+            setTimeout(() => debug.remove(), 3000);
+        }
+
+        function speak(text) {
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'en-US';
                 speechSynthesis.speak(utterance);
             }
         }
 
-        // Tasks Management
         function addTask(text) {
-            if (text.trim()) {
-                const task = {
-                    id: Date.now(),
-                    text: text.trim(),
-                    completed: false
-                };
-                tasks.push(task);
-                saveTasks();
-                renderTasks();
-                return true;
-            }
-            return false;
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'task-item';
+            taskDiv.textContent = text;
+            document.getElementById('taskList').appendChild(taskDiv);
         }
 
-        function addTaskOnEnter(event) {
-            if (event.key === 'Enter') {
-                const input = document.getElementById('taskInput');
-                if (addTask(input.value)) {
-                    input.value = '';
-                }
-            }
-        }
-
-        function toggleTask(id) {
-            tasks = tasks.map(task => 
-                task.id === id ? {...task, completed: !task.completed} : task
-            );
-            saveTasks();
-            renderTasks();
-        }
-
-        function deleteTask(id) {
-            tasks = tasks.filter(task => task.id !== id);
-            saveTasks();
-            renderTasks();
-        }
-
-        function saveTasks() {
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-        }
-
-        function renderTasks() {
-            const taskList = document.getElementById('taskList');
-            taskList.innerHTML = tasks.map(task => `
-                <li class="task-item">
-                    <input type="checkbox" 
-                           class="task-checkbox" 
-                           ${task.completed ? 'checked' : ''}
-                           onclick="toggleTask(${task.id})">
-                    <span class="task-text ${task.completed ? 'task-completed' : ''}">${task.text}</span>
-                    <button class="task-delete" onclick="deleteTask(${task.id})">×</button>
-                </li>
-            `).join('');
-        }
-
-        // Reminders Management
-        function addReminder() {
-            const text = document.getElementById('reminderText').value.trim();
-            const time = document.getElementById('reminderTime').value;
-            
-            if (text && time) {
-                const reminder = {
-                    id: Date.now(),
-                    text,
-                    time,
-                    notified: false
-                };
-                reminders.push(reminder);
-                saveReminders();
-                renderReminders();
-                document.getElementById('reminderText').value = '';
-                document.getElementById('reminderTime').value = '';
-            }
-        }
-
-        function deleteReminder(id) {
-            reminders = reminders.filter(reminder => reminder.id !== id);
-            saveReminders();
-            renderReminders();
-        }
-
-        function saveReminders() {
-            localStorage.setItem('reminders', JSON.stringify(reminders));
-        }
-
-        function renderReminders() {
-            const reminderList = document.getElementById('reminderList');
-            reminderList.innerHTML = reminders.map(reminder => `
-                <li class="task-item">
-                    <span class="task-text">
-                        ${reminder.text}<br>
-                        <small>${new Date(reminder.time).toLocaleString()}</small>
-                    </span>
-                    <button class="task-delete" onclick="deleteReminder(${reminder.id})">×</button>
-                </li>
-            `).join('');
-        }
-
-        // Tab Management
-        function showTasks() {
-            document.getElementById('tasksSection').style.display = 'block';
-            document.getElementById('remindersSection').style.display = 'none';
-            document.querySelectorAll('.tab').forEach((tab, index) => {
-                tab.classList.toggle('active', index === 0);
-            });
-        }
-
-        function showReminders() {
-            document.getElementById('tasksSection').style.display = 'none';
-            document.getElementById('remindersSection').style.display = 'block';
-            document.querySelectorAll('.tab').forEach((tab, index) => {
-                tab.classList.toggle('active', index === 1);
-            });
-        }
-
-        // Voice button click handler
-        document.getElementById('voiceButton').addEventListener('click', () => {
+        voiceButton.addEventListener('click', () => {
             if (!isListening && recognition) {
                 recognition.start();
             }
         });
-
-        // Check Reminders
-        setInterval(() => {
-            const now = new Date();
-            reminders.forEach(reminder => {
-                if (!reminder.notified && new Date(reminder.time) <= now) {
-                    if (Notification.permission === 'granted') {
-                        new Notification('Reminder: ' + reminder.text);
-                    }
-                    reminder.notified = true;
-                }
-            });
-            saveReminders();
-        }, 1000);
-
-        // Initialize
-        renderTasks();
-        renderReminders();
-        
-        // Request notification permission
-        if ('Notification' in window) {
-            Notification.requestPermission();
-        }
     </script>
 </body>
 </html>
