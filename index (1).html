@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#9333ea">
+    <title>Genie - Your Personal Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background: #f0f0f0;
+            min-height: 100vh;
+        }
+        .app {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        .header {
+            background: #9333ea;
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .voice-button {
+            background: #7928ca;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 24px;
+            font-size: 18px;
+            margin: 16px auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .voice-button:hover {
+            background: #6b21a8;
+        }
+        .voice-button.listening {
+            background: #ff4444;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .response {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 8px 0;
+            text-align: center;
+        }
+        .task-list {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            gap: 8px;
+        }
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        .debug-info {
+            background: #f8f8f8;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>Genie</h1>
+            <p>Your Personal Assistant</p>
+            <button id="voiceButton" class="voice-button">
+                <span id="micIcon">🎤</span>
+                <span id="buttonText">Talk to Genie</span>
+            </button>
+        </header>
+
+        <div id="responseArea"></div>
+        <div id="taskList" class="task-list"></div>
+    </div>
+
+    <script>
+        const voiceButton = document.getElementById('voiceButton');
+        const buttonText = document.getElementById('buttonText');
+        const responseArea = document.getElementById('responseArea');
+        let isListening = false;
+
+        // Initialize speech recognition
+        let recognition = null;
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isListening = true;
+                voiceButton.classList.add('listening');
+                buttonText.textContent = 'Listening...';
+                showResponse('I\'m listening...');
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                showDebug('I heard: ' + text);
+                handleCommand(text.toLowerCase());
+            };
+
+            recognition.onerror = (event) => {
+                showResponse('Error: ' + event.error);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                voiceButton.classList.remove('listening');
+                buttonText.textContent = 'Talk to Genie';
+            };
+        }
+
+function handleCommand(command) {
+    // First, show what Genie heard
+    showDebug('Processing command: ' + command);
+    let response = '';
+
+    if (command.includes('hello') || command.includes('hi')) {
+        response = 'Hello! How can I help you today?';
+    }
+    else if (command.includes('add task') || command.includes('new task')) {
+        const task = command.replace(/add task|new task/gi, '').trim();
+        if (task) {
+            // Actually add the task
+            const taskItem = document.createElement('div');
+            taskItem.className = 'task-item';
+            taskItem.innerHTML = `
+                <input type="checkbox" class="task-checkbox">
+                <span class="task-text">${task}</span>
+                <button onclick="this.parentElement.remove()" class="task-delete">×</button>
+            `;
+            document.getElementById('taskList').appendChild(taskItem);
+            response = `I've added your task: ${task}`;
+        } else {
+            response = "Please tell me what task to add";
+        }
+    }
+    else if (command.includes('set reminder')) {
+        response = "I'll help you set a reminder. What time would you like the reminder?";
+    }
+    else {
+        response = "I heard you but I'm not sure what to do. Try saying 'add task' followed by your task.";
+    }
+
+    showResponse(response);
+    speak(response);
+}            let response = '';
+
+            if (command.includes('hello') || command.includes('hi')) {
+                response = 'Hello! How can I help you today?';
+            }
+            else if (command.includes('add task') || command.includes('new task')) {
+                const task = command.replace(/add task|new task/gi, '').trim();
+                if (task) {
+                    addTask(task);
+                    response = `Added task: ${task}`;
+                }
+            }
+            else if (command.includes('set reminder')) {
+                const reminder = command.replace('set reminder', '').trim();
+                response = `Setting reminder: ${reminder}`;
+                // Add reminder functionality
+            }
+            else if (command.includes('what can you do')) {
+                response = 'I can help you manage tasks and set reminders. Try saying "add task" or "set reminder"';
+            }
+            else {
+                response = "I'm not sure what you mean. Try saying 'hello', 'add task', or 'what can you do'";
+            }
+
+            showResponse(response);
+            speak(response);
+        }
+
+        function showResponse(text) {
+            const response = document.createElement('div');
+            response.className = 'response';
+            response.textContent = text;
+            responseArea.insertBefore(response, responseArea.firstChild);
+
+            // Remove after 5 seconds
+            setTimeout(() => response.remove(), 5000);
+        }
+
+        function showDebug(text) {
+            const debug = document.createElement('div');
+            debug.className = 'debug-info';
+            debug.textContent = text;
+            responseArea.insertBefore(debug, responseArea.firstChild);
+            
+            // Remove after 3 seconds
+            setTimeout(() => debug.remove(), 3000);
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        function addTask(text) {
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'task-item';
+            taskDiv.textContent = text;
+            document.getElementById('taskList').appendChild(taskDiv);
+        }
+
+        voiceButton.addEventListener('click', () => {
+            if (!isListening && recognition) {
+                recognition.start();
+            }
+        });
+    </script>
+</body>
+</html>
