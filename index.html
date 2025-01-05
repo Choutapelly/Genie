@@ -191,6 +191,8 @@
 
         // Process voice commands
         function processVoiceCommand(command) {
+            showResponse("I heard: " + command);
+
             let response = '';
             
             if (command.includes('add task') || command.includes('new task')) {
