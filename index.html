@@ -340,30 +340,45 @@
             setTimeout(() => debug.remove(), 3000);
         }
 
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text);
-                
-                // Get available voices and select a female voice
-                let voices = speechSynthesis.getVoices();
-                const femaleVoice = voices.find(voice => 
-                    voice.name.includes('female') || 
-                    voice.name.includes('woman') ||
-                    voice.name.includes('girl')
-                );
-                
-                if (femaleVoice) {
-                    utterance.voice = femaleVoice;
-                }
-                
-                utterance.pitch = 1.2; // Slightly higher pitch
-                utterance.rate = 1.0;  // Normal speed
-                utterance.volume = 1.0;
-                
-                speechSynthesis.speak(utterance);
+      function speak(text) {
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Wait for voices to be loaded
+        window.speechSynthesis.getVoices();
+        
+        // Function to set voice
+        const setVoice = () => {
+            const voices = window.speechSynthesis.getVoices();
+            // Try to find a female voice
+            const femaleVoice = voices.find(voice => 
+                voice.name.toLowerCase().includes('female') ||
+                voice.name.toLowerCase().includes('samantha') ||
+                voice.name.toLowerCase().includes('lisa') ||
+                voice.name.toLowerCase().includes('victoria')
+            );
+            
+            if (femaleVoice) {
+                utterance.voice = femaleVoice;
             }
-        }
+        };
+        
+        // Set voice properties
+        setVoice();
+        utterance.pitch = 1.2;     // Higher pitch for more feminine voice
+        utterance.rate = 1.0;      // Normal speed
+        utterance.volume = 1.0;    // Full volume
+        
+        // Speak the text
+        window.speechSynthesis.speak(utterance);
+    }
+}
 
+// Add this to initialize voices
+window.speechSynthesis.onvoiceschanged = () => {
+    const voices = window.speechSynthesis.getVoices();
+    console.log("Available voices:", voices.map(v => v.name));
+};
         // Initialize voices
         if ('speechSynthesis' in window) {
             speechSynthesis.onvoiceschanged = () => {
