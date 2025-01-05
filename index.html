@@ -165,7 +165,7 @@
         // Initialize speech recognition
         if ('webkitSpeechRecognition' in window) {
             recognition = new webkitSpeechRecognition();
-            recognition.continuous = false;
+            recognition.continuous = true;
             recognition.interimResults = false;
             recognition.lang = 'en-IN';
 
@@ -189,38 +189,95 @@
             };
         }
 
-        // Process voice commands
         function processVoiceCommand(command) {
             showResponse("I heard: " + command);
-
             let response = '';
             
             if (command.includes('set task') || command.includes('new task')) {
-                const taskText = command.replace(/set task|new task/i, '').trim();
+                const taskText = command
+                    .replace(/set task|new task/gi, '')
+                    .trim();
+                
                 if (taskText) {
                     addTask(taskText);
-                    response = `Added task: ${taskText}`;
+                    response = `Added new task: ${taskText}`;
+                    showTasks();
+                } else {
+                    response = "What task would you like me to set?";
                 }
-            } else if (command.includes('set reminder')) {
+            } 
+            else if (command.includes('set reminder')) {
                 const reminderText = command.replace('set reminder', '').trim();
-                document.getElementById('reminderText').value = reminderText;
-                showReminders();
-                response = 'Please select a time for your reminder';
-            } else if (command.includes('show tasks') || command.includes('list tasks')) {
+                
+                // Extract time patterns
+                let reminderTime = new Date();
+                let timeFound = false;
+
+                // Check for "tomorrow"
+                if (command.includes('tomorrow')) {
+                    reminderTime.setDate(reminderTime.getDate() + 1);
+                    timeFound = true;
+                }
+                
+                // Check for "at [time]" pattern
+                if (command.includes(' at ')) {
+                    const timeMatch = command.match(/at (\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+                    if (timeMatch) {
+                        let hours = parseInt(timeMatch[1]);
+                        const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+                        const meridiem = timeMatch[3] ? timeMatch[3].toLowerCase() : null;
+                        
+                        // Convert to 24-hour format if PM
+                        if (meridiem === 'pm' && hours < 12) hours += 12;
+                        if (meridiem === 'am' && hours === 12) hours = 0;
+                        
+                        reminderTime.setHours(hours, minutes, 0);
+                        timeFound = true;
+                    }
+                }
+
+                if (reminderText && timeFound) {
+                    const reminder = {
+                        id: Date.now(),
+                        text: reminderText,
+                        time: reminderTime.toISOString(),
+                        notified: false
+                    };
+                    reminders.push(reminder);
+                    saveReminders();
+                    renderReminders();
+                    
+                    response = `Reminder set for ${reminderTime.toLocaleString()}: ${reminderText}`;
+                    showReminders();
+                } else if (reminderText) {
+                    document.getElementById('reminderText').value = reminderText;
+                    showReminders();
+                    response = 'Please select a time for your reminder';
+                } else {
+                    response = "What would you like me to remind you about?";
+                }
+            }
+            else if (command.includes('show tasks') || command.includes('list tasks')) {
                 showTasks();
-                response = `You have ${tasks.length} tasks`;
-            } else if (command.includes('show reminders')) {
+                const pendingTasks = tasks.filter(t => !t.completed).length;
+                response = `You have ${pendingTasks} pending tasks out of ${tasks.length} total tasks`;
+            }
+            else if (command.includes('show reminders')) {
                 showReminders();
-                response = `You have ${reminders.length} reminders`;
-            } else {
-                response = "I'm sorry, I didn't understand that command. Try saying 'set task', 'set reminder', or 'show tasks'.";
+                response = `You have ${reminders.length} reminders set`;
+            }
+            else if (command.includes('help') || command.includes('what can you do')) {
+                response = "You can say: 'set task', 'set reminder', 'show tasks', or 'show reminders'. For reminders, try saying 'set reminder [task] tomorrow at [time]'";
+            }
+            else {
+                response = "I didn't understand that. Try saying 'set task' followed by your task, or say 'help' for options.";
             }
 
             showResponse(response);
             speakResponse(response);
         }
 
-        // Visual and audio response
+        // Rest of your existing functions (showResponse, speakResponse, etc.)
         function showResponse(text) {
             const response = document.createElement('div');
             response.className = 'genie-response';
@@ -241,7 +298,6 @@
             }
         }
 
-        // Tasks Management
         function addTask(text) {
             if (text.trim()) {
                 const task = {
@@ -298,7 +354,6 @@
             `).join('');
         }
 
-        // Reminders Management
         function addReminder() {
             const text = document.getElementById('reminderText').value.trim();
             const time = document.getElementById('reminderTime').value;
@@ -341,7 +396,6 @@
             `).join('');
         }
 
-        // Tab Management
         function showTasks() {
             document.getElementById('tasksSection').style.display = 'block';
             document.getElementById('remindersSection').style.display = 'none';
@@ -358,14 +412,12 @@
             });
         }
 
-        // Voice button click handler
         document.getElementById('voiceButton').addEventListener('click', () => {
             if (!isListening && recognition) {
                 recognition.start();
             }
         });
 
-        // Check Reminders
         setInterval(() => {
             const now = new Date();
             reminders.forEach(reminder => {
