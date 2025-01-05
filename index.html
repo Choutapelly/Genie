@@ -210,8 +210,8 @@
         function processVoiceCommand(command) {
             let response = '';
 
-            if (command.includes('set task')) {
-                const taskText = command.replace('set task', '').trim();
+            if (command.includes('new task')) {
+                const taskText = command.replace('new task', '').trim();
                 if (taskText) {
                     addTask(taskText);
                     response = `Added task: ${taskText}`;
@@ -260,7 +260,7 @@
                 response = `You have ${reminders.length} reminders`;
             }
             else {
-                response = "I didn't understand. Try saying 'set task', 'set reminder', or 'show tasks'";
+                response = "I didn't understand. Try saying 'new task', 'set reminder', or 'show tasks'";
             }
 
             showResponse(response);
