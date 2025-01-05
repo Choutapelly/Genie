@@ -141,8 +141,41 @@
             };
         }
 
-        function handleCommand(command) {
-            let response = '';
+function handleCommand(command) {
+    // First, show what Genie heard
+    showDebug('Processing command: ' + command);
+    let response = '';
+
+    if (command.includes('hello') || command.includes('hi')) {
+        response = 'Hello! How can I help you today?';
+    }
+    else if (command.includes('add task') || command.includes('new task')) {
+        const task = command.replace(/add task|new task/gi, '').trim();
+        if (task) {
+            // Actually add the task
+            const taskItem = document.createElement('div');
+            taskItem.className = 'task-item';
+            taskItem.innerHTML = `
+                <input type="checkbox" class="task-checkbox">
+                <span class="task-text">${task}</span>
+                <button onclick="this.parentElement.remove()" class="task-delete">×</button>
+            `;
+            document.getElementById('taskList').appendChild(taskItem);
+            response = `I've added your task: ${task}`;
+        } else {
+            response = "Please tell me what task to add";
+        }
+    }
+    else if (command.includes('set reminder')) {
+        response = "I'll help you set a reminder. What time would you like the reminder?";
+    }
+    else {
+        response = "I heard you but I'm not sure what to do. Try saying 'add task' followed by your task.";
+    }
+
+    showResponse(response);
+    speak(response);
+}            let response = '';
 
             if (command.includes('hello') || command.includes('hi')) {
                 response = 'Hello! How can I help you today?';
